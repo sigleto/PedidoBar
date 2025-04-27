@@ -11,13 +11,14 @@ import {
 import { useRestaurant } from "../../Context/RestaurantContext";
 import { MaterialIcons, FontAwesome } from "@expo/vector-icons";
 
+// app/(tabs)/order.tsx
 const OrderScreen = () => {
   const {
     currentEstablishment,
     addToOrder,
-    order,
-    clearOrder,
+    orders,
     removeFromOrder,
+    clearOrder,
   } = useRestaurant();
 
   if (!currentEstablishment) {
@@ -31,8 +32,10 @@ const OrderScreen = () => {
     );
   }
 
+  const currentOrder = orders[currentEstablishment.id] || [];
+
   const getTotal = () => {
-    return order
+    return currentOrder
       .reduce((acc, item) => acc + item.product.price * item.quantity, 0)
       .toFixed(2);
   };
@@ -76,14 +79,14 @@ const OrderScreen = () => {
 
         <Text style={styles.sectionTitle}>Tu pedido</Text>
 
-        {order.length === 0 ? (
+        {currentOrder.length === 0 ? (
           <View style={styles.emptyOrderContainer}>
             <MaterialIcons name="shopping-cart" size={40} color="#888" />
             <Text style={styles.emptyOrderText}>No has añadido productos</Text>
           </View>
         ) : (
           <FlatList
-            data={order}
+            data={currentOrder}
             scrollEnabled={false}
             keyExtractor={(item) => item.product.id}
             contentContainerStyle={styles.orderList}
@@ -114,12 +117,12 @@ const OrderScreen = () => {
           />
         )}
 
-        {order.length > 0 && (
+        {currentOrder.length > 0 && (
           <View style={styles.totalContainer}>
             <Text style={styles.totalText}>Total: {getTotal()} €</Text>
           </View>
         )}
-        {order.length > 0 && (
+        {currentOrder.length > 0 && (
           <TouchableOpacity style={styles.clearButton} onPress={clearOrder}>
             <Text style={styles.clearButtonText}>
               <MaterialIcons name="delete" size={18} color="white" /> Vaciar

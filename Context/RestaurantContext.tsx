@@ -25,7 +25,7 @@ type RestaurantContextType = {
   setCurrentEstablishment: (establishment: Establishment) => void;
   addEstablishment: (name: string) => void;
   addProductToCurrentMenu: (product: Product) => void;
-  order: OrderItem[];
+  orders: Record<string, OrderItem[]>; // Usamos un objeto para almacenar pedidos por establecimiento
   addToOrder: (product: Product) => void;
   removeFromOrder: (product: Product) => void;
   clearOrder: () => void;
@@ -37,7 +37,7 @@ const RestaurantContext = createContext<RestaurantContextType | undefined>(
 
 const ESTABLISHMENTS_KEY = "establishments";
 const CURRENT_ESTABLISHMENT_KEY = "currentEstablishment";
-const ORDER_KEY = "order"; // 🔑 Nueva clave para guardar el pedido
+const ORDERS_KEY = "orders"; // 🔑 Nueva clave para guardar los pedidos de todos los establecimientos
 
 export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -45,7 +45,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const [currentEstablishment, setCurrentEstablishmentState] =
     useState<Establishment>();
-  const [order, setOrder] = useState<OrderItem[]>([]);
+  const [orders, setOrders] = useState<Record<string, OrderItem[]>>({});
 
   // 🔵 Al iniciar la app, cargar datos almacenados
   useEffect(() => {
@@ -57,8 +57,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({
         const storedCurrent = await AsyncStorage.getItem(
           CURRENT_ESTABLISHMENT_KEY
         );
-        // 🔑 Cargar el pedido almacenado
-        const storedOrder = await AsyncStorage.getItem(ORDER_KEY);
+        const storedOrders = await AsyncStorage.getItem(ORDERS_KEY);
 
         if (storedEstablishments) {
           const parsedEstablishments = JSON.parse(storedEstablishments);
@@ -68,10 +67,9 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({
           const parsedCurrent = JSON.parse(storedCurrent);
           setCurrentEstablishmentState(parsedCurrent);
         }
-        // 🔑 Si hay un pedido guardado, cárgalo
-        if (storedOrder) {
-          const parsedOrder = JSON.parse(storedOrder);
-          setOrder(parsedOrder);
+        if (storedOrders) {
+          const parsedOrders = JSON.parse(storedOrders);
+          setOrders(parsedOrders);
         }
       } catch (error) {
         console.error("Error loading data:", error);
@@ -104,12 +102,12 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // 🔑 Función para guardar el pedido en AsyncStorage
-  const saveOrder = async (orderToSave: OrderItem[]) => {
+  // 🔑 Función para guardar los pedidos de todos los establecimientos
+  const saveOrders = async (newOrders: Record<string, OrderItem[]>) => {
     try {
-      await AsyncStorage.setItem(ORDER_KEY, JSON.stringify(orderToSave));
+      await AsyncStorage.setItem(ORDERS_KEY, JSON.stringify(newOrders));
     } catch (error) {
-      console.error("Error saving order:", error);
+      console.error("Error saving orders:", error);
     }
   };
 
@@ -149,53 +147,76 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({
     saveCurrentEstablishment(updated);
   };
 
-  // Función para añadir un producto al pedido
+  // Función para añadir un producto al pedido del establecimiento actual
   const addToOrder = (product: Product) => {
-    setOrder((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id);
-      if (existing) {
-        const updatedOrder = prev.map((item) =>
-          item.product.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-        saveOrder(updatedOrder); // 🔑 Guardar el pedido actualizado
-        return updatedOrder;
-      }
-      const updatedOrder = [...prev, { product, quantity: 1 }];
-      saveOrder(updatedOrder); // 🔑 Guardar el pedido actualizado
-      return updatedOrder;
-    });
+    if (!currentEstablishment) return;
+
+    const currentOrders = { ...orders };
+
+    if (!currentOrders[currentEstablishment.id]) {
+      currentOrders[currentEstablishment.id] = [];
+    }
+
+    const existing = currentOrders[currentEstablishment.id].find(
+      (item) => item.product.id === product.id
+    );
+
+    if (existing) {
+      const updatedOrder = currentOrders[currentEstablishment.id].map((item) =>
+        item.product.id === product.id
+          ? { ...item, quantity: item.quantity + 1 }
+          : item
+      );
+      currentOrders[currentEstablishment.id] = updatedOrder;
+    } else {
+      currentOrders[currentEstablishment.id] = [
+        ...currentOrders[currentEstablishment.id],
+        { product, quantity: 1 },
+      ];
+    }
+
+    setOrders(currentOrders);
+    saveOrders(currentOrders);
   };
 
-  // Función para restar un producto del pedido
+  // Función para restar un producto del pedido del establecimiento actual
   const removeFromOrder = (product: Product) => {
-    setOrder((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id);
-      if (existing) {
-        if (existing.quantity === 1) {
-          const updatedOrder = prev.filter(
-            (item) => item.product.id !== product.id
-          );
-          saveOrder(updatedOrder); // 🔑 Guardar el pedido actualizado
-          return updatedOrder;
-        }
-        const updatedOrder = prev.map((item) =>
-          item.product.id === product.id
-            ? { ...item, quantity: item.quantity - 1 }
-            : item
+    if (!currentEstablishment) return;
+
+    const currentOrders = { ...orders };
+    const existing = currentOrders[currentEstablishment.id]?.find(
+      (item) => item.product.id === product.id
+    );
+
+    if (existing) {
+      if (existing.quantity === 1) {
+        const updatedOrder = currentOrders[currentEstablishment.id].filter(
+          (item) => item.product.id !== product.id
         );
-        saveOrder(updatedOrder); // 🔑 Guardar el pedido actualizado
-        return updatedOrder;
+        currentOrders[currentEstablishment.id] = updatedOrder;
+      } else {
+        const updatedOrder = currentOrders[currentEstablishment.id].map(
+          (item) =>
+            item.product.id === product.id
+              ? { ...item, quantity: item.quantity - 1 }
+              : item
+        );
+        currentOrders[currentEstablishment.id] = updatedOrder;
       }
-      return prev;
-    });
+    }
+
+    setOrders(currentOrders);
+    saveOrders(currentOrders);
   };
 
-  // Función para vaciar el pedido
+  // Función para vaciar el pedido del establecimiento actual
   const clearOrder = () => {
-    setOrder([]);
-    saveOrder([]); // 🔑 Guardar el pedido vacío
+    if (!currentEstablishment) return;
+
+    const currentOrders = { ...orders };
+    currentOrders[currentEstablishment.id] = [];
+    setOrders(currentOrders);
+    saveOrders(currentOrders);
   };
 
   return (
@@ -206,7 +227,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({
         setCurrentEstablishment,
         addEstablishment,
         addProductToCurrentMenu,
-        order,
+        orders,
         addToOrder,
         removeFromOrder,
         clearOrder,
