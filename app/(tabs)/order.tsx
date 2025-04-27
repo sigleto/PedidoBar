@@ -116,21 +116,20 @@ const OrderScreen = () => {
             )}
           />
         )}
-
-        {currentOrder.length > 0 && (
-          <View style={styles.totalContainer}>
-            <Text style={styles.totalText}>Total: {getTotal()} €</Text>
-          </View>
-        )}
-        {currentOrder.length > 0 && (
-          <TouchableOpacity style={styles.clearButton} onPress={clearOrder}>
-            <Text style={styles.clearButtonText}>
-              <MaterialIcons name="delete" size={18} color="white" /> Vaciar
-              pedido
-            </Text>
-          </TouchableOpacity>
-        )}
       </ScrollView>
+      {currentOrder.length > 0 && (
+        <View style={styles.totalContainer}>
+          <Text style={styles.totalText}>Total: {getTotal()} €</Text>
+        </View>
+      )}
+      {currentOrder.length > 0 && (
+        <TouchableOpacity style={styles.clearButton} onPress={clearOrder}>
+          <Text style={styles.clearButtonText}>
+            <MaterialIcons name="delete" size={18} color="white" /> Vaciar
+            pedido
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
