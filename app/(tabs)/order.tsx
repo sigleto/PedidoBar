@@ -119,16 +119,15 @@ const OrderScreen = () => {
             <Text style={styles.totalText}>Total: {getTotal()} €</Text>
           </View>
         )}
+        {order.length > 0 && (
+          <TouchableOpacity style={styles.clearButton} onPress={clearOrder}>
+            <Text style={styles.clearButtonText}>
+              <MaterialIcons name="delete" size={18} color="white" /> Vaciar
+              pedido
+            </Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
-
-      {order.length > 0 && (
-        <TouchableOpacity style={styles.clearButton} onPress={clearOrder}>
-          <Text style={styles.clearButtonText}>
-            <MaterialIcons name="delete" size={18} color="white" /> Vaciar
-            pedido
-          </Text>
-        </TouchableOpacity>
-      )}
     </View>
   );
 };
@@ -180,8 +179,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     backgroundColor: "white",
-    padding: 16,
-    marginBottom: 12,
+    padding: 12,
+    marginBottom: 8,
     borderRadius: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -237,8 +236,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     backgroundColor: "white",
-    padding: 16,
-    marginBottom: 12,
+    padding: 12,
+    marginBottom: 8,
     borderRadius: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -282,7 +281,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#2c3e50",
     padding: 16,
     borderRadius: 8,
-    marginTop: 20,
+    marginTop: 5,
     alignItems: "center",
   },
   totalText: {
@@ -291,10 +290,6 @@ const styles = StyleSheet.create({
     color: "white",
   },
   clearButton: {
-    position: "absolute",
-    bottom: 20,
-    left: 20,
-    right: 20,
     backgroundColor: "#e74c3c",
     padding: 16,
     borderRadius: 8,
@@ -304,6 +299,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
+    marginTop: 5,
+    alignSelf: "center", // Centrado
+    width: "80%", // No tan ancho
   },
   clearButtonText: {
     color: "white",
