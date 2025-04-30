@@ -8,14 +8,19 @@ import {
   TouchableOpacity,
   StyleSheet,
   Keyboard,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useRestaurant } from "../../Context/RestaurantContext";
 import { MaterialIcons } from "@expo/vector-icons";
 
 const EstablishmentScreen = () => {
-  const { establishments, addEstablishment, setCurrentEstablishment } =
-    useRestaurant();
+  const {
+    establishments,
+    addEstablishment,
+    setCurrentEstablishment,
+    removeEstablishment,
+  } = useRestaurant();
   const [newName, setNewName] = useState("");
   const router = useRouter();
 
@@ -35,6 +40,21 @@ const EstablishmentScreen = () => {
     }
   };
 
+  const handleDelete = (id: string, name: string) => {
+    Alert.alert(
+      "Eliminar establecimiento",
+      `¿Seguro que quieres eliminar "${name}"?`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: () => removeEstablishment(id),
+        },
+      ]
+    );
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.header}>Elige Establecimiento</Text>
@@ -44,14 +64,22 @@ const EstablishmentScreen = () => {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContainer}
         renderItem={({ item }) => (
-          <TouchableOpacity
-            onPress={() => handleSelect(item.id)}
-            style={styles.establishmentCard}
-          >
-            <MaterialIcons name="restaurant" size={24} color="#4a6fa5" />
-            <Text style={styles.establishmentName}>{item.name}</Text>
-            <MaterialIcons name="chevron-right" size={24} color="#666" />
-          </TouchableOpacity>
+          <View style={styles.establishmentCard}>
+            <TouchableOpacity
+              onPress={() => handleSelect(item.id)}
+              style={styles.establishmentButton}
+            >
+              <MaterialIcons name="restaurant" size={24} color="#4a6fa5" />
+              <Text style={styles.establishmentName}>{item.name}</Text>
+              <MaterialIcons name="chevron-right" size={24} color="#666" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => handleDelete(item.id, item.name)}
+              style={styles.deleteButton}
+            >
+              <MaterialIcons name="delete" size={24} color="#e74c3c" />
+            </TouchableOpacity>
+          </View>
         )}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
@@ -117,12 +145,21 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    justifyContent: "space-between", // Espacio entre elementos
+  },
+  establishmentButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1, // Ocupar el espacio restante
   },
   establishmentName: {
     fontSize: 18,
     marginLeft: 12,
     marginRight: "auto",
     color: "#333",
+  },
+  deleteButton: {
+    padding: 8,
   },
   emptyContainer: {
     flex: 1,

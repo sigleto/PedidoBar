@@ -1,3 +1,4 @@
+// app/(tabs)/MenuScreen.tsx
 import React, { useState } from "react";
 import {
   View,
@@ -9,15 +10,28 @@ import {
   TouchableOpacity,
   Keyboard,
   ScrollView,
+  Modal,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useRestaurant } from "../../Context/RestaurantContext";
 import { MaterialIcons, FontAwesome } from "@expo/vector-icons";
+import type { Product } from "../../Context/RestaurantContext";
 
 const MenuScreen = () => {
-  const { currentEstablishment, addProductToCurrentMenu } = useRestaurant();
+  const {
+    currentEstablishment,
+    addProductToCurrentMenu,
+    editProductInCurrentMenu,
+    removeProductFromCurrentMenu, // NUEVO
+  } = useRestaurant();
+
   const [productName, setProductName] = useState("");
   const [productPrice, setProductPrice] = useState("");
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editProductId, setEditProductId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editPrice, setEditPrice] = useState("");
   const router = useRouter();
 
   if (currentEstablishment === undefined) {
@@ -43,7 +57,7 @@ const MenuScreen = () => {
   const handleAddProduct = () => {
     if (productName.trim() === "" || isNaN(Number(productPrice))) return;
 
-    const newProduct = {
+    const newProduct: Product = {
       id: Date.now().toString(),
       name: productName.trim(),
       price: parseFloat(productPrice),
@@ -52,6 +66,43 @@ const MenuScreen = () => {
     setProductName("");
     setProductPrice("");
     Keyboard.dismiss();
+  };
+
+  // Abrir modal de edición
+  const openEditModal = (product: Product) => {
+    setEditProductId(product.id);
+    setEditName(product.name);
+    setEditPrice(product.price.toString());
+    setEditModalVisible(true);
+  };
+
+  // Guardar cambios de edición
+  const handleEditProduct = () => {
+    if (!editName.trim() || isNaN(Number(editPrice)) || !editProductId) return;
+    editProductInCurrentMenu({
+      id: editProductId,
+      name: editName.trim(),
+      price: parseFloat(editPrice),
+    });
+    setEditModalVisible(false);
+    setEditProductId(null);
+    setEditName("");
+    setEditPrice("");
+  };
+
+  const handleDeleteProduct = (product: Product) => {
+    Alert.alert(
+      "Eliminar producto",
+      `¿Seguro que quieres eliminar "${product.name}"?`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: () => removeProductFromCurrentMenu(product.id),
+        },
+      ]
+    );
   };
 
   const handleFinish = () => {
@@ -73,7 +124,7 @@ const MenuScreen = () => {
           scrollEnabled={false}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.menuList}
-          renderItem={({ item }) => (
+          renderItem={({ item }: { item: Product }) => (
             <View style={styles.menuItem}>
               <FontAwesome
                 name="cutlery"
@@ -85,6 +136,18 @@ const MenuScreen = () => {
                 {item.name} -{" "}
                 <Text style={styles.priceText}>{item.price.toFixed(2)} €</Text>
               </Text>
+              <TouchableOpacity
+                onPress={() => openEditModal(item)}
+                style={styles.editButton}
+              >
+                <MaterialIcons name="edit" size={20} color="#4a6fa5" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => handleDeleteProduct(item)}
+                style={styles.deleteButton}
+              >
+                <MaterialIcons name="delete" size={20} color="#e74c3c" />
+              </TouchableOpacity>
             </View>
           )}
           ListEmptyComponent={
@@ -144,155 +207,174 @@ const MenuScreen = () => {
           y empezar a pedir
         </Text>
       </TouchableOpacity>
+
+      {/* MODAL DE EDICIÓN */}
+      <Modal
+        visible={editModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.sectionTitle}>Editar producto</Text>
+            <TextInput
+              placeholder="Nombre del producto"
+              value={editName}
+              onChangeText={setEditName}
+              style={styles.input}
+            />
+            <TextInput
+              placeholder="Precio (€)"
+              value={editPrice}
+              onChangeText={setEditPrice}
+              keyboardType="numeric"
+              style={styles.input}
+            />
+            <View
+              style={{ flexDirection: "row", justifyContent: "space-between" }}
+            >
+              <TouchableOpacity
+                style={styles.button}
+                onPress={handleEditProduct}
+              >
+                <Text style={styles.buttonText}>Guardar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, styles.buttonDisabled]}
+                onPress={() => setEditModalVisible(false)}
+              >
+                <Text style={styles.buttonText}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
 
+export default MenuScreen;
+
 const styles = StyleSheet.create({
-  centered: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#f8f9fa",
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: "#555",
-  },
-  errorText: {
-    marginTop: 16,
-    fontSize: 18,
-    color: "#e74c3c",
-    fontWeight: "500",
-  },
-  container: {
-    flex: 1,
-    backgroundColor: "#f8f9fa",
-  },
-  scrollContainer: {
-    padding: 20,
-    paddingBottom: 80,
-  },
+  container: { flex: 1, backgroundColor: "#f4f6fa" },
+  scrollContainer: { padding: 20, paddingBottom: 100 },
   headerContainer: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 24,
+    marginBottom: 16,
+    gap: 8,
   },
   header: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#2c3e50",
-    marginRight: 10,
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#4a6fa5",
+    flex: 1,
   },
-  menuList: {
-    paddingBottom: 20,
-  },
+  menuList: { gap: 8 },
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "white",
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: "#fff",
     borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    elevation: 1,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 2,
   },
-  menuIcon: {
-    marginRight: 12,
-  },
-  menuItemText: {
-    fontSize: 16,
-    color: "#333",
-    flexShrink: 1,
-  },
-  priceText: {
-    fontWeight: "600",
-    color: "#4a6fa5",
-  },
+  menuIcon: { marginRight: 10 },
+  menuItemText: { flex: 1, fontSize: 16, color: "#333" },
+  priceText: { color: "#4a6fa5", fontWeight: "bold" },
+  editButton: { marginLeft: 8, padding: 4 },
+  deleteButton: { marginLeft: 4, padding: 4 },
   emptyMenuContainer: {
     alignItems: "center",
-    padding: 40,
-    backgroundColor: "white",
-    borderRadius: 10,
-    marginTop: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
+    marginVertical: 32,
   },
   emptyMenuText: {
-    marginTop: 16,
-    fontSize: 16,
+    marginTop: 8,
     color: "#888",
+    fontSize: 16,
   },
   formContainer: {
-    backgroundColor: "white",
-    padding: 20,
-    borderRadius: 10,
-    marginTop: 20,
+    marginTop: 24,
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    padding: 16,
+    elevation: 1,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 2,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 16,
-    color: "#2c3e50",
+    fontWeight: "bold",
+    color: "#4a6fa5",
+    marginBottom: 12,
   },
   input: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    padding: 14,
-    marginBottom: 16,
-    borderRadius: 8,
+    backgroundColor: "#f0f2f7",
+    borderRadius: 6,
+    padding: 10,
     fontSize: 16,
-    backgroundColor: "#f9f9f9",
+    marginBottom: 10,
+    color: "#333",
   },
   button: {
     backgroundColor: "#4a6fa5",
-    padding: 16,
-    borderRadius: 8,
+    borderRadius: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     alignItems: "center",
     marginTop: 8,
   },
   buttonDisabled: {
-    backgroundColor: "#95a5a6",
-    opacity: 0.7,
+    backgroundColor: "#b0c4de",
   },
   buttonText: {
     color: "white",
+    fontWeight: "bold",
     fontSize: 16,
-    fontWeight: "600",
   },
   finishButton: {
     position: "absolute",
-    bottom: 20,
-    left: 20,
-    right: 20,
-    backgroundColor: "#27ae60",
-    padding: 16,
+    bottom: 24,
+    left: 24,
+    right: 24,
+    backgroundColor: "#4a6fa5",
     borderRadius: 8,
+    paddingVertical: 14,
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    elevation: 2,
   },
   finishButtonText: {
     color: "white",
-    fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "bold",
+    fontSize: 18,
+  },
+  centered: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f4f6fa",
+  },
+  loadingText: { marginTop: 12, color: "#4a6fa5", fontSize: 16 },
+  errorText: { marginTop: 12, color: "#e74c3c", fontSize: 16 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    width: "85%",
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    padding: 20,
+    elevation: 3,
   },
 });
-
-export default MenuScreen;

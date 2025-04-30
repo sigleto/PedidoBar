@@ -1,20 +1,19 @@
-// context/RestaurantContext.tsx
 import React, { createContext, useContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-type Product = {
+export type Product = {
   id: string;
   name: string;
   price: number;
 };
 
-type Establishment = {
+export type Establishment = {
   id: string;
   name: string;
   menu: Product[];
 };
 
-type OrderItem = {
+export type OrderItem = {
   product: Product;
   quantity: number;
 };
@@ -24,8 +23,11 @@ type RestaurantContextType = {
   currentEstablishment?: Establishment;
   setCurrentEstablishment: (establishment: Establishment) => void;
   addEstablishment: (name: string) => void;
+  removeEstablishment: (id: string) => void; // NUEVO
   addProductToCurrentMenu: (product: Product) => void;
-  orders: Record<string, OrderItem[]>; // Usamos un objeto para almacenar pedidos por establecimiento
+  editProductInCurrentMenu: (product: Product) => void;
+  removeProductFromCurrentMenu: (productId: string) => void; // NUEVO
+  orders: Record<string, OrderItem[]>;
   addToOrder: (product: Product) => void;
   removeFromOrder: (product: Product) => void;
   clearOrder: () => void;
@@ -37,7 +39,7 @@ const RestaurantContext = createContext<RestaurantContextType | undefined>(
 
 const ESTABLISHMENTS_KEY = "establishments";
 const CURRENT_ESTABLISHMENT_KEY = "currentEstablishment";
-const ORDERS_KEY = "orders"; // 🔑 Nueva clave para guardar los pedidos de todos los establecimientos
+const ORDERS_KEY = "orders";
 
 export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -47,7 +49,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({
     useState<Establishment>();
   const [orders, setOrders] = useState<Record<string, OrderItem[]>>({});
 
-  // 🔵 Al iniciar la app, cargar datos almacenados
+  // Cargar datos almacenados al iniciar
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -78,7 +80,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({
     loadData();
   }, []);
 
-  // 🔵 Guardar establecimientos en AsyncStorage
+  // Guardar establecimientos
   const saveEstablishments = async (newEstablishments: Establishment[]) => {
     try {
       await AsyncStorage.setItem(
@@ -90,7 +92,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // 🔵 Guardar el establecimiento actual
+  // Guardar establecimiento actual
   const saveCurrentEstablishment = async (establishment: Establishment) => {
     try {
       await AsyncStorage.setItem(
@@ -102,7 +104,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // 🔑 Función para guardar los pedidos de todos los establecimientos
+  // Guardar pedidos
   const saveOrders = async (newOrders: Record<string, OrderItem[]>) => {
     try {
       await AsyncStorage.setItem(ORDERS_KEY, JSON.stringify(newOrders));
@@ -111,7 +113,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // Función para añadir un establecimiento
+  // Añadir establecimiento nuevo
   const addEstablishment = (name: string) => {
     const newEstablishment: Establishment = {
       id: Date.now().toString(),
@@ -125,13 +127,32 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({
     saveCurrentEstablishment(newEstablishment);
   };
 
-  // Función para establecer el establecimiento actual
+  // Eliminar establecimiento
+  const removeEstablishment = (id: string) => {
+    const updatedEstablishments = establishments.filter((e) => e.id !== id);
+    setEstablishments(updatedEstablishments);
+    saveEstablishments(updatedEstablishments);
+
+    // Si el eliminado es el actual, limpiar currentEstablishment
+    if (currentEstablishment?.id === id) {
+      setCurrentEstablishmentState(undefined);
+      AsyncStorage.removeItem(CURRENT_ESTABLISHMENT_KEY);
+    }
+
+    // También eliminar pedidos asociados
+    const updatedOrders = { ...orders };
+    delete updatedOrders[id];
+    setOrders(updatedOrders);
+    saveOrders(updatedOrders);
+  };
+
+  // Establecer establecimiento actual
   const setCurrentEstablishment = (establishment: Establishment) => {
     setCurrentEstablishmentState(establishment);
     saveCurrentEstablishment(establishment);
   };
 
-  // Función para añadir un producto al menú del establecimiento actual
+  // Añadir producto al menú del establecimiento actual
   const addProductToCurrentMenu = (product: Product) => {
     if (!currentEstablishment) return;
     const updated = {
@@ -147,7 +168,39 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({
     saveCurrentEstablishment(updated);
   };
 
-  // Función para añadir un producto al pedido del establecimiento actual
+  // Editar producto en el menú del establecimiento actual
+  const editProductInCurrentMenu = (updatedProduct: Product) => {
+    if (!currentEstablishment) return;
+    const updatedMenu = currentEstablishment.menu.map((product) =>
+      product.id === updatedProduct.id ? updatedProduct : product
+    );
+    const updatedEstablishment = { ...currentEstablishment, menu: updatedMenu };
+    const updatedEstablishments = establishments.map((e) =>
+      e.id === updatedEstablishment.id ? updatedEstablishment : e
+    );
+    setEstablishments(updatedEstablishments);
+    saveEstablishments(updatedEstablishments);
+    setCurrentEstablishmentState(updatedEstablishment);
+    saveCurrentEstablishment(updatedEstablishment);
+  };
+
+  // Eliminar producto del menú del establecimiento actual
+  const removeProductFromCurrentMenu = (productId: string) => {
+    if (!currentEstablishment) return;
+    const updatedMenu = currentEstablishment.menu.filter(
+      (product) => product.id !== productId
+    );
+    const updatedEstablishment = { ...currentEstablishment, menu: updatedMenu };
+    const updatedEstablishments = establishments.map((e) =>
+      e.id === updatedEstablishment.id ? updatedEstablishment : e
+    );
+    setEstablishments(updatedEstablishments);
+    saveEstablishments(updatedEstablishments);
+    setCurrentEstablishmentState(updatedEstablishment);
+    saveCurrentEstablishment(updatedEstablishment);
+  };
+
+  // Añadir producto al pedido del establecimiento actual
   const addToOrder = (product: Product) => {
     if (!currentEstablishment) return;
 
@@ -179,7 +232,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({
     saveOrders(currentOrders);
   };
 
-  // Función para restar un producto del pedido del establecimiento actual
+  // Restar producto del pedido del establecimiento actual
   const removeFromOrder = (product: Product) => {
     if (!currentEstablishment) return;
 
@@ -209,10 +262,9 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({
     saveOrders(currentOrders);
   };
 
-  // Función para vaciar el pedido del establecimiento actual
+  // Vaciar pedido del establecimiento actual
   const clearOrder = () => {
     if (!currentEstablishment) return;
-
     const currentOrders = { ...orders };
     currentOrders[currentEstablishment.id] = [];
     setOrders(currentOrders);
@@ -226,7 +278,10 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({
         currentEstablishment,
         setCurrentEstablishment,
         addEstablishment,
+        removeEstablishment, // NUEVO
         addProductToCurrentMenu,
+        editProductInCurrentMenu,
+        removeProductFromCurrentMenu, // NUEVO
         orders,
         addToOrder,
         removeFromOrder,
